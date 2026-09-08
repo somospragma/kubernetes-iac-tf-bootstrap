@@ -1,0 +1,79 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Argo CD — Helm values
+# Chart:    argo-cd v10.7.1 (Argo CD v3.5)
+# K8s:      v1.36 compatible (documentado en https://argo-cd.readthedocs.io)
+# Repo:     https://argoproj.github.io/argo-helm
+#
+# Instalación:
+#   helm repo add argo https://argoproj.github.io/argo-helm
+#   helm repo update
+#   helm upgrade --install argocd argo/argo-cd \
+#     --namespace argocd --create-namespace \
+#     --version 10.7.1 \
+#     -f bootstrap/argocd/values.yaml
+#
+# Acceso inicial via port-forward:
+#   kubectl port-forward svc/argocd-server -n argocd 8080:443
+#   Password: kubectl get secret argocd-initial-admin-secret \
+#             -n argocd -o jsonpath="{.data.password}" | base64 -d
+# ──────────────────────────────────────────────────────────────────────────────
+
+# NOTA: En chart 10.x no existe global.affinity.
+# La affinity se configura por componente individualmente.
+# Todos los pods van al Node Group (Capa 1) via karpenter.sh/nodepool DoesNotExist.
+
+# ── Affinity compartida — todos los componentes van al Node Group ─────────────
+# (definida como anchor YAML para reutilizar en cada componente)
+_affinityTemplate: &systemNodeAffinity
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: karpenter.sh/nodepool
+              operator: DoesNotExist
+
+# ── Application Controller ────────────────────────────────────────────────────
+controller:
+  affinity: *systemNodeAffinity
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  affinity: *systemNodeAffinity
+  replicas: 2
+
+  # Sin TLS — se termina en Istio Gateway
+  extraArgs:
+    - --insecure
+
+  # PDB para el server
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+  # Service ClusterIP — acceso via port-forward inicialmente
+  service:
+    type: ClusterIP
+
+# ── Repo Server ───────────────────────────────────────────────────────────────
+repoServer:
+  affinity: *systemNodeAffinity
+  replicas: 2
+
+# ── Application Set Controller ────────────────────────────────────────────────
+applicationSet:
+  affinity: *systemNodeAffinity
+  replicas: 2
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+notifications:
+  affinity: *systemNodeAffinity
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+redis:
+  affinity: *systemNodeAffinity
+
+# ── Configuración global de Argo CD ──────────────────────────────────────────
+configs:
+  params:
+    # Deshabilitar TLS en el server — se termina en Istio Gateway (Fase 2)
+    server.insecure: "true"

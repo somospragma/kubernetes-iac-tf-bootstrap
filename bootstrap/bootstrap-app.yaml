@@ -1,0 +1,39 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Bootstrap App of Apps
+#
+# Esta Application apunta a la carpeta apps/ de este repo.
+# Argo CD descubre y sincroniza automáticamente todos los Applications
+# que encuentre en esa carpeta.
+#
+# Se aplica UNA SOLA VEZ manualmente después de instalar Argo CD:
+#   kubectl apply -f bootstrap/bootstrap-app.yaml
+#
+# A partir de ahí Argo CD gestiona todo lo demás.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bootstrap
+  namespace: argocd
+  # Argo CD se gestiona a sí mismo — no eliminar esta app accidentalmente
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Actualizar con la URL del repo en Azure DevOps cuando esté disponible
+    # repoURL: git@ssh.dev.azure.com:v3/Pragma-SOPP/SOPP-Infrastructure/kubernetes-iac-tf-bootstrap
+    repoURL: https://github.com/somospragma/kubernetes-iac-tf-bootstrap
+    targetRevision: develop
+    path: apps
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: false      # No eliminar apps automáticamente — decisión manual
+      selfHeal: true    # Corregir drift automáticamente
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,42 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# NodeClass — platform
+#
+# Define la configuración AWS para los nodos de Karpenter (Capa 2):
+# - Subnets donde corren los nodos
+# - Security Group de los nodos (sg-eks-platform-nodes)
+# - Storage, SNAT y network policy
+#
+# IMPORTANTE: Actualizar securityGroupSelectorTerms con el ID real del SG
+# obtenido del output: terraform output platform_nodes_sg_id
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: eks.amazonaws.com/v1
+kind: NodeClass
+metadata:
+  name: platform
+spec:
+  # IAM Role de los nodos EC2
+  # Fuente: terraform output iam_node_role_arn (kubernetes-iac-tf-base)
+  role: pragma-sopp-dev-role-eks-node-main
+
+  # Subnets donde corren los nodos de workload
+  # Fuente: terraform output service_subnet_ids
+  subnetSelectorTerms:
+    - id: "subnet-073f054f1bd7a1a88"  # us-east-1b service subnet
+    - id: "subnet-052175b8f4b08eb80"  # us-east-1a service subnet
+
+  # SG dedicado para nodos Karpenter (Capa 2)
+  # Fuente: terraform output platform_nodes_sg_id (kubernetes-iac-tf-base)
+  securityGroupSelectorTerms:
+    - id: "sg-02808e0d431507979"
+
+  # Storage ephemeral de los nodos
+  ephemeralStorage:
+    size: 80Gi
+    iops: 3000
+    throughput: 125
+
+  # SNAT: Random — múltiples pods comparten la IP del nodo para tráfico saliente
+  snatPolicy: Random
+
+  # Network Policy: DefaultAllow — restricciones via NetworkPolicy de K8s
+  networkPolicy: DefaultAllow

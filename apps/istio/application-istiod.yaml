@@ -1,0 +1,43 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# istiod — Control plane de Istio
+# Wave 2: depende de istio-base
+# Corre en Node Group via affinity DoesNotExist
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://blob.istio.io/istio-release/charts
+    chart: istiod
+    targetRevision: "1.26.0"
+    helm:
+      values: |
+        # istiod corre en el Node Group (Capa 1)
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: karpenter.sh/nodepool
+                      operator: DoesNotExist
+        # PDB para istiod
+        pilot:
+          replicaCount: 2
+          autoscaleEnabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

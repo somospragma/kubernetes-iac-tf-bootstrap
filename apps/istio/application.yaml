@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Istio — App of Apps para instalar los 3 componentes en orden
+#
+# IMPORTANTE: Antes de aplicar esta app, instalar los Gateway API CRDs:
+#   kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.6.0" \
+#     | kubectl apply -f -
+#
+# Componentes instalados en orden via sync-waves:
+#   Wave 1: istio-base  (CRDs de Istio)
+#   Wave 2: istiod      (Control plane)
+#   Wave 3: gateway     (definido en apps/istio/gateway.yaml)
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-base
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://blob.istio.io/istio-release/charts
+    chart: base
+    targetRevision: "1.26.0"
+    helm:
+      values: |
+        defaultRevision: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

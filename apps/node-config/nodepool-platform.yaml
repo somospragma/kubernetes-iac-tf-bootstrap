@@ -1,0 +1,69 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# NodePool — platform
+#
+# Define cómo Karpenter provisiona nodos para los workloads de la Capa 2.
+# Los pods llegan aquí via:
+#   nodeSelector:
+#     karpenter.sh/nodepool: platform
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: platform
+spec:
+  template:
+    metadata:
+      labels:
+        role: platform
+    spec:
+      # Referenciar el NodeClass creado arriba
+      nodeClassRef:
+        group: eks.amazonaws.com
+        kind: NodeClass
+        name: platform
+
+      # Requerimientos de los nodos
+      requirements:
+        # Familias de instancias — M (general purpose), C (compute), R (memory)
+        - key: eks.amazonaws.com/instance-category
+          operator: In
+          values: ["m", "c", "r"]
+
+        # Solo instancias de generación 5 o mayor
+        - key: eks.amazonaws.com/instance-generation
+          operator: Gt
+          values: ["4"]
+
+        # Solo On-Demand para workloads de plataforma
+        # Los workloads tolerantes a interrupciones usarán un NodePool Spot separado
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["on-demand"]
+
+        # AMD64 por compatibilidad
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+
+        # Zonas de disponibilidad donde existen las subnets service
+        - key: topology.kubernetes.io/zone
+          operator: In
+          values: ["us-east-1a", "us-east-1b"]
+
+      # Vida máxima del nodo — Karpenter lo reemplaza antes de los 21 días de Auto Mode
+      expireAfter: 168h  # 7 días
+
+      # Tiempo máximo de terminación graceful
+      terminationGracePeriod: 1h
+
+  # Consolidación — apaga nodos subutilizados después de 5 minutos
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 5m
+    budgets:
+      - nodes: "20%"  # Máximo 20% de nodos en disruption simultáneamente
+
+  # Límites de recursos — techo de costo para este NodePool
+  limits:
+    cpu: "100"
+    memory: 400Gi

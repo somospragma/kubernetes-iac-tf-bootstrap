@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Istio Gateway — con Kubernetes Gateway API
+# Wave 3: depende de istiod
+#
+# Con Gateway API, Istio crea automáticamente el Deployment y Service
+# del gateway cuando se define este objeto. No necesita chart separado.
+#
+# gatewayClassName: istio → Istio gestiona el Deployment automáticamente
+#
+# El Deployment del gateway corre en nodos Karpenter (Capa 2) por defecto.
+# Si se quiere forzar al Node Group, agregar el ConfigMap de opciones.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: istio-gateway
+  namespace: istio-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-tls           # Secret con el certificado TLS
+            namespace: istio-ingress
+      allowedRoutes:
+        namespaces:
+          from: All
