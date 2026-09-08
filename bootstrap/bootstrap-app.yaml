@@ -26,6 +26,12 @@ spec:
     repoURL: https://github.com/somospragma/kubernetes-iac-tf-bootstrap
     targetRevision: develop
     path: apps
+    # IMPORTANTE: patrón App of Apps oficial — path: apps debe contener
+    # SOLO manifiestos Application, de forma plana (sin recurse).
+    # Los recursos reales (NodeClass, NodePool, Gateway) viven en
+    # subcarpetas (apps/node-config/, apps/istio/) y son gestionados
+    # por sus propias Applications hijas, no por este padre.
+    # Ver: https://argo-cd.readthedocs.io/en/latest/operator-manual/cluster-bootstrapping/
 
   destination:
     server: https://kubernetes.default.svc

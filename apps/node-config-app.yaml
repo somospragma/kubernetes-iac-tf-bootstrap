@@ -11,9 +11,6 @@ spec:
     repoURL: https://github.com/somospragma/kubernetes-iac-tf-bootstrap
     targetRevision: develop
     path: apps/node-config
-    # Solo sincroniza los archivos de K8s, no el application.yaml
-    directory:
-      exclude: "application.yaml"
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
