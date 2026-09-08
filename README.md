@@ -18,19 +18,23 @@
 
 ## Estructura
 
+Patrón App of Apps oficial de Argo CD: `apps/` en la raíz contiene **solo** manifiestos `Application`, de forma plana (sin `recurse`). Los recursos reales viven en subcarpetas y son gestionados por su propia Application hija.
+
 ```
 bootstrap/
 ├── argocd/
 │   └── values.yaml        ← Helm values para instalar Argo CD
-└── bootstrap-app.yaml     ← App of Apps raíz (se aplica una sola vez)
+└── bootstrap-app.yaml     ← App of Apps raíz (se aplica una sola vez, plano, sin recurse)
 
 apps/
-├── node-config/           ← NodeClass + NodePool platform
-│   ├── application.yaml
+├── node-config-app.yaml   ← Application que gestiona apps/node-config/
+├── node-config/           ← NodeClass + NodePool platform (Karpenter, Capa 2)
 │   ├── nodeclass-platform.yaml
 │   └── nodepool-platform.yaml
-└── istio/                 ← Istio con Kubernetes Gateway API
-    └── application.yaml   ← (valores se agregan en siguiente iteración)
+└── istio/                 ← Istio con Kubernetes Gateway API (NO expuesto al padre aún)
+    ├── application.yaml
+    ├── application-istiod.yaml
+    └── gateway.yaml
 ```
 
 ---
@@ -81,6 +85,25 @@ terraform output platform_nodes_sg_id
 # Editar apps/node-config/nodeclass-platform.yaml
 # Reemplazar PLACEHOLDER_SG_ID con el ID real
 ```
+
+## Paso 3.5 — Access Entry para el rol del NodeClass (obligatorio)
+
+EKS Auto Mode solo crea Access Entries automáticamente para el `NodeClass` `default` y los NodePools built-in. Cualquier `NodeClass` custom con un rol propio necesita su Access Entry manual de **tipo `EC2`**, o el NodeClass queda bloqueado con `InstanceProfileReady: False` / `UnauthorizedNodeRole`:
+
+```bash
+aws eks create-access-entry \
+  --cluster-name pragma-sopp-dev-eks-main \
+  --principal-arn arn:aws:iam::<account-id>:role/<rol-del-nodeclass> \
+  --type EC2
+
+aws eks associate-access-policy \
+  --cluster-name pragma-sopp-dev-eks-main \
+  --principal-arn arn:aws:iam::<account-id>:role/<rol-del-nodeclass> \
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSAutoNodePolicy \
+  --access-scope type=cluster
+```
+
+Ver decisión #11 en `docs/decisiones-arquitectura.md` para el detalle completo.
 
 ## Paso 4 — Aplicar el Bootstrap App of Apps
 
