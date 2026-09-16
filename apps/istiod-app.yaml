@@ -41,3 +41,16 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+  # istiod inyecta su CA raiz en el caBundle del webhook en tiempo de
+  # ejecucion. Ese valor nunca coincide con el manifiesto renderizado por
+  # Helm, dejando la app en OutOfSync permanente sin esto.
+  # Ref: https://github.com/argoproj/argo-cd/issues/12961
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle

@@ -1,14 +1,14 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# Istio — App of Apps para instalar los 3 componentes en orden
+# istio-base — CRDs propios de Istio (Gateway, VirtualService, etc.)
 #
-# IMPORTANTE: Antes de aplicar esta app, instalar los Gateway API CRDs:
-#   kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.6.0" \
-#     | kubectl apply -f -
+# Los Gateway API CRDs (Gateway, HTTPRoute, GatewayClass) NO son estos —
+# esos los instala gateway-api-crds-app.yaml en wave 0, antes que esta app.
 #
-# Componentes instalados en orden via sync-waves:
-#   Wave 1: istio-base  (CRDs de Istio)
-#   Wave 2: istiod      (Control plane)
-#   Wave 3: gateway     (definido en apps/istio/gateway.yaml)
+# Orden via sync-waves:
+#   Wave 0: gateway-api-crds (CRDs de Kubernetes Gateway API)
+#   Wave 1: istio-base       (este archivo — CRDs propios de Istio)
+#   Wave 2: istiod           (Control plane)
+#   Wave 3: gateway          (definido en apps/istio/gateway.yaml, no expuesto aun)
 # ──────────────────────────────────────────────────────────────────────────────
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -38,3 +38,10 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+  # istiod inyecta su CA raiz en el caBundle de este webhook al arrancar.
+  # Ref: https://github.com/argoproj/argo-cd/issues/12961
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
