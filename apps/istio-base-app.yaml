@@ -38,10 +38,11 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
-  # istiod inyecta su CA raiz en el caBundle de este webhook al arrancar.
+  # istiod gestiona este webhook completamente en runtime (caBundle +
+  # defaults que Kubernetes completa). Se ignora el array webhooks entero.
   # Ref: https://github.com/argoproj/argo-cd/issues/12961
   ignoreDifferences:
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
-      jsonPointers:
-        - /webhooks/0/clientConfig/caBundle
+      jqPathExpressions:
+        - '.webhooks'

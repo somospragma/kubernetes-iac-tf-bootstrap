@@ -41,16 +41,19 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-  # istiod inyecta su CA raiz en el caBundle del webhook en tiempo de
-  # ejecucion. Ese valor nunca coincide con el manifiesto renderizado por
-  # Helm, dejando la app en OutOfSync permanente sin esto.
+  # istiod gestiona completamente estos webhooks en runtime: inyecta su CA
+  # raiz en el caBundle y Kubernetes completa defaults (matchPolicy,
+  # namespaceSelector, scope, timeoutSeconds, port) que no estan en el
+  # manifiesto renderizado por Helm. jsonPointers apuntando solo al
+  # caBundle no bastaba (seguian quedando otros campos en diff), asi que
+  # se ignora el array completo de webhooks con jqPathExpressions.
   # Ref: https://github.com/argoproj/argo-cd/issues/12961
   ignoreDifferences:
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
-      jsonPointers:
-        - /webhooks/0/clientConfig/caBundle
+      jqPathExpressions:
+        - '.webhooks'
     - group: admissionregistration.k8s.io
       kind: MutatingWebhookConfiguration
-      jsonPointers:
-        - /webhooks/0/clientConfig/caBundle
+      jqPathExpressions:
+        - '.webhooks'
