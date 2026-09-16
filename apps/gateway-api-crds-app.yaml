@@ -1,0 +1,42 @@
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Gateway API CRDs — prerequisito para Istio como Gateway API controller
+#
+# EKS no trae estos CRDs por defecto (Gateway, HTTPRoute, GatewayClass, etc.).
+# En vez de aplicarlos manualmente con kubectl, esta Application le dice a
+# Argo CD que los lea directamente desde el repo oficial de Kubernetes SIG
+# (kustomization.yaml en config/crd), fijado a un tag específico (v1.6.0)
+# para reproducibilidad.
+#
+# sync-wave: "0" — debe instalarse ANTES de istio-base (wave 1) e istiod
+# (wave 2), porque istiod necesita que el CRD "gateways.gateway.networking.k8s.io"
+# ya exista para poder registrar su GatewayClass.
+#
+# Fuente: https://github.com/kubernetes-sigs/gateway-api
+# Ref oficial Istio: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubernetes-sigs/gateway-api
+    targetRevision: v1.6.0
+    path: config/crd
+    kustomize: {}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
