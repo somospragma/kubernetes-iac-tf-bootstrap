@@ -21,6 +21,21 @@
 # gestione todo automaticamente) como prueba controlada. Si falla,
 # el error de AWS deberia indicar el permiso IAM exacto que falta.
 #
+# INTENTO 1 (fallido): sin tags -> 403 AccessDenied por un Service Control
+# Policy de AWS Organizations (p-ihsjg4fe) al intentar
+# elasticloadbalancing:CreateLoadBalancer. El SCP vive a nivel de
+# Organizations, fuera del alcance de este repo/cuenta.
+#
+# INTENTO 2 (actual): se agregan los mismos tags de gobernanza que usa
+# el resto de la infraestructura (common_tags en kubernetes-iac-tf-base)
+# via aws-load-balancer-additional-resource-tags, bajo la hipotesis de
+# que el SCP exige esos tags para permitir la creacion del recurso.
+# Requiere ademas un permiso IAM adicional en el Cluster Role (Auto Mode
+# no propaga tags de usuario por defecto) — ver decision correspondiente
+# en kubernetes-iac-tf-base/environments/dev/terraform.tfvars
+# (iam_config["eks-cluster"].policies, statement LoadBalancerTagPropagation).
+# Ref: https://docs.aws.amazon.com/eks/latest/userguide/auto-cluster-iam-role.html#tag-prop
+#
 # Listener HTTPS removido temporalmente — no hay Secret de certificado
 # TLS aun. Se agrega cuando se resuelva el flujo de certificados (ACM
 # vs cert-manager, ver deuda-tecnica.md #9).
@@ -37,6 +52,7 @@ data:
         service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
         service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-0a53b1d667c4507b9,subnet-0e6fa4f05b5f1faaf
+        service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "client=pragma,cost-center=9952,country=global,environment=dev,owner=people-dev,project=sopp,service=global,territory=global"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
