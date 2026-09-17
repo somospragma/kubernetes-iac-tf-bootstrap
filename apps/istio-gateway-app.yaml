@@ -1,0 +1,38 @@
+
+# ──────────────────────────────────────────────────────────────────────────────
+# istio-gateway — Objeto Gateway real (Kubernetes Gateway API) + ConfigMap
+# de opciones AWS (subnets publicas, scheme internet-facing).
+#
+# Wave 3: depende de istiod (wave 2) ya Synced/Healthy.
+#
+# VALIDACION EN CURSO — ver comentarios en apps/istio/gateway.yaml y
+# decision correspondiente en docs/decisiones-arquitectura.md.
+# EKS Auto Mode no acepta Security Group personalizado por anotacion
+# para el NLB; se prueba primero sin el SG custom para confirmar si
+# Auto Mode logra modificar sg-eks-platform-nodes automaticamente o
+# si el Cluster Role necesita permisos IAM adicionales.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/somospragma/kubernetes-iac-tf-bootstrap
+    targetRevision: develop
+    path: apps/istio
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-ingress
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

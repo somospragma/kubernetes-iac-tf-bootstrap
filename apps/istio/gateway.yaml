@@ -7,9 +7,37 @@
 #
 # gatewayClassName: istio → Istio gestiona el Deployment automáticamente
 #
-# El Deployment del gateway corre en nodos Karpenter (Capa 2) por defecto.
-# Si se quiere forzar al Node Group, agregar el ConfigMap de opciones.
+# VALIDACION EN CURSO (ver docs/decisiones-arquitectura.md):
+# EKS Auto Mode NO acepta un Security Group personalizado por anotacion
+# para el NLB (no existe aws-load-balancer-security-groups en la lista
+# de anotaciones soportadas). Auto Mode gestiona el SG del NLB de forma
+# interna y necesita modificar el SG de los NODOS para inyectar sus
+# reglas de ingress — eso requiere que el SG de los nodos siga el
+# naming pattern "eks-cluster-sg-*", o que el Cluster Role tenga permisos
+# IAM adicionales para modificar SGs custom (nuestro caso: el NodeClass
+# usa sg-eks-platform-nodes, que NO sigue ese patron).
+#
+# Este manifiesto se aplica SIN el SG custom (dejando que Auto Mode
+# gestione todo automaticamente) como prueba controlada. Si falla,
+# el error de AWS deberia indicar el permiso IAM exacto que falta.
+#
+# Listener HTTPS removido temporalmente — no hay Secret de certificado
+# TLS aun. Se agrega cuando se resuelva el flujo de certificados (ACM
+# vs cert-manager, ver deuda-tecnica.md #9).
 # ──────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-gateway-options
+  namespace: istio-ingress
+data:
+  service: |
+    metadata:
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+        service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+        service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-0a53b1d667c4507b9,subnet-0e6fa4f05b5f1faaf
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -19,22 +47,15 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 spec:
   gatewayClassName: istio
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: istio-gateway-options
   listeners:
     - name: http
       port: 80
       protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: All
-    - name: https
-      port: 443
-      protocol: HTTPS
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: wildcard-tls           # Secret con el certificado TLS
-            namespace: istio-ingress
       allowedRoutes:
         namespaces:
           from: All
